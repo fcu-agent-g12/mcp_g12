@@ -9,6 +9,7 @@ W8 分組實作：MCP Server
 """
 
 from mcp.server.fastmcp import FastMCP
+from tools.get_weather import get_weather_data
 
 mcp = FastMCP("第12組-server")
 
@@ -33,6 +34,14 @@ def get_fun_fact() -> str:
     當使用者詢問冷知識、趣聞、隨機事實、今天學到什麼時使用。"""
     return get_fun_fact_data()
 
+from tools.dog_tool import get_dog_image_data
+
+@mcp.tool()
+def get_dog_image() -> str:
+    """取得每日隨機狗狗圖片 URL。
+    當使用者想看狗狗、需要療癒圖片、或詢問每日一狗時使用。"""
+    return get_dog_image_data()
+
 
 @mcp.tool()
 def hello(name: str) -> str:
@@ -40,6 +49,16 @@ def hello(name: str) -> str:
     return f"你好，{name}！MCP Server 運作正常 🎉"
 
 
+@mcp.tool()
+def get_weather(city: str) -> str:
+    """取得指定城市的即時天氣資訊。"""
+    return get_weather_data(city)
+
+@mcp.tool()
+def get_useless_fact() -> str:
+    """取得一則隨機英文冷知識（今日冷知識）。
+    當使用者詢問冷知識、趣聞、隨機事實、今天學到什麼時使用。"""
+    return get_useless_fact_data()
 # ════════════════════════════════
 #  Resource：提供靜態參考資料
 #  URI 格式：info://名稱 或 docs://名稱
@@ -76,6 +95,17 @@ def plan_trip(city: str) -> str:
         f"3. 給我一則旅行前的人生建議\n"
         f"4. 推薦 2-3 個在 {city} 可以做的活動\n"
         f"請用繁體中文，語氣活潑。"
+
+# 範例（替換成符合你們主題的內容）：
+@mcp.prompt()
+def my_plan(topic: str) -> str:
+    """每日生活顧問 MCP Server"""
+    return (
+        f"請幫我規劃關於 {topic} 的計畫：\n"
+        f"1. 先使用相關工具取得資訊\n"
+        f"2. 根據資訊提供 3 個具體建議\n"
+        f"3. 附上一則笑話或建議讓我開心\n"
+        f"請用繁體中文回答。"
     )
 
 

@@ -1,201 +1,117 @@
-"""
-W8 分組實作：MCP Client + Gemini Agent
-使用 MCP SSE Client 連接 Server，搭配 Gemini 2.0 Flash 進行多輪對話。
-"""
-
-import asyncio
-import json
 import os
-import re
-import time
-
+import asyncio
 from dotenv import load_dotenv
+from mcp.client.sse import sse_client
+from mcp.client.session import ClientSession
 from google import genai
 from google.genai import types
-from mcp import ClientSession
-from mcp.client.sse import sse_client
 
-# ── 載入環境變數 ────────────────────────────────────────────────────────────
 load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise EnvironmentError("請在 .env 檔案中設定 GEMINI_API_KEY")
-
-MCP_SERVER_URL = "http://localhost:8000/sse"
-MODEL_ID = "gemini-2.0-flash"
-
-# ── 工具格式轉換：MCP → Gemini FunctionDeclaration ──────────────────────────
-
-def mcp_tool_to_gemini(tool) -> types.FunctionDeclaration:
-    """把 MCP Tool 物件轉成 Gemini FunctionDeclaration。"""
-    # 取出 inputSchema，若沒有則給空 object schema
-    input_schema = getattr(tool, "inputSchema", None) or {}
-
-    # Gemini 需要 type + properties 結構
-    parameters = None
-    if input_schema:
-        parameters = types.Schema(
-            type=input_schema.get("type", "object"),
-            properties={
-                name: types.Schema(
-                    type=prop.get("type", "string"),
-                    description=prop.get("description", ""),
-                )
-                for name, prop in input_schema.get("properties", {}).items()
-            },
-            required=input_schema.get("required", []),
-        )
-
-    return types.FunctionDeclaration(
-        name=tool.name,
-        description=tool.description or "",
-        parameters=parameters,
-    )
 
 
-# ── 主要 Agent 邏輯 ─────────────────────────────────────────────────────────
+async def main():
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        print("❌ 請在 .env 中設定 GEMINI_API_KEY")
+        return
 
-async def run_agent():
-    print("=" * 55)
-    print("  MCP + Gemini Agent 啟動中")
-    print(f"  連接至：{MCP_SERVER_URL}")
-    print("=" * 55)
+    client = genai.Client(api_key=api_key)
 
-    # 1. 建立 MCP SSE 連線
-    async with sse_client(MCP_SERVER_URL) as (read, write):
+    server_url = "http://localhost:8000/sse"
+    print(f"🔗 正在連接到 MCP Server: {server_url}")
+
+    async with sse_client(server_url) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
-            print("[MCP] 連線成功，正在取得工具清單…\n")
+            print("✅ 成功連接到 MCP Server！")
 
-            # 2. 取得工具清單
             tools_response = await session.list_tools()
-            mcp_tools = tools_response.tools
-            print(f"[MCP] 共取得 {len(mcp_tools)} 個工具：")
-            for t in mcp_tools:
-                print(f"      • {t.name}：{t.description}")
-            print()
+            print(f"🛠️  自動取得 {len(tools_response.tools)} 個工具。")
 
-            # 3. 轉換成 Gemini 格式
-            gemini_tools = [types.Tool(
-                function_declarations=[mcp_tool_to_gemini(t) for t in mcp_tools]
-            )]
+            declarations = []
+            for t in tools_response.tools:
+                decl = types.FunctionDeclaration(
+                    name=t.name,
+                    description=t.description or "",
+                    parameters=t.inputSchema,
+                )
+                declarations.append(decl)
+                print(f"  - {t.name}: {t.description}")
 
-            # 4. 初始化 Gemini 客戶端
-            client = genai.Client(api_key=GEMINI_API_KEY)
+            gemini_tools = []
+            if declarations:
+                gemini_tools = [types.Tool(function_declarations=declarations)]
 
-            # 對話歷史（多輪）
-            history: list[types.Content] = []
+            chat = client.aio.chats.create(
+                model="gemini-2.0-flash",
+                config=types.GenerateContentConfig(tools=gemini_tools, temperature=0.7),
+            )
 
-            print("輸入 'exit' 或 'quit' 結束對話。")
-            print("-" * 55)
+            print("\n🤖 Gemini Agent 建立完成，聊天開始 (輸入 'quit' 或 'exit' 結束)")
 
-            # 5. 多輪對話迴圈
             while True:
-                # 取得使用者輸入
-                try:
-                    user_input = input("\n你：").strip()
-                except (EOFError, KeyboardInterrupt):
-                    print("\n[Agent] 對話結束。")
+                user_msg = input("\n你: ")
+                if user_msg.lower() in ("quit", "exit"):
+                    print("👋 掰掰！")
                     break
-
-                if not user_input:
+                if not user_msg.strip():
                     continue
-                if user_input.lower() in {"exit", "quit"}:
-                    print("[Agent] 對話結束。")
-                    break
 
-                # 加入使用者訊息到歷史
-                history.append(types.Content(
-                    role="user",
-                    parts=[types.Part(text=user_input)],
-                ))
+                try:
+                    response = await chat.send_message(user_msg)
 
-                # 內部迴圈：讓 Gemini 可以連續呼叫工具直到給出最終回答
-                while True:
-                    # 呼叫 Gemini，遇到 429 自動等待重試
-                    for attempt in range(5):
-                        try:
-                            response = client.models.generate_content(
-                                model=MODEL_ID,
-                                contents=history,
-                                config=types.GenerateContentConfig(
-                                    tools=gemini_tools,
-                                ),
-                            )
-                            break  # 成功就跳出重試迴圈
-                        except Exception as e:
-                            err_str = str(e)
-                            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                                # 從錯誤訊息解析建議等待秒數
-                                match = re.search(r"retry in ([\d.]+)s", err_str)
-                                wait_sec = float(match.group(1)) if match else 30
-                                wait_sec = min(wait_sec + 5, 60)  # 多等 5 秒緩衝
-                                print(f"\n[WARN] API 配額限制，等待 {wait_sec:.0f} 秒後重試（第 {attempt+1}/5 次）...")
-                                time.sleep(wait_sec)
-                            else:
-                                raise  # 其他錯誤直接拋出
-                    else:
-                        print("[ERROR] 已達最大重試次數，跳過此輪對話。")
-                        break
+                    while True:
+                        if response.function_calls:
+                            func_responses = []
+                            for fc in response.function_calls:
+                                tool_name = fc.name
+                                tool_args = fc.args
+                                print(f"\n  [Debug] 👉 Agent 決定呼叫工具: {tool_name}")
+                                print(f"  [Debug] 參數: {tool_args}")
 
-                    candidate = response.candidates[0]
-                    content = candidate.content  # types.Content (role=model)
-                    history.append(content)      # 加入模型回應到歷史
-
-                    # 檢查是否有 function_call
-                    function_calls = [
-                        part for part in content.parts
-                        if part.function_call is not None
-                    ]
-
-                    if function_calls:
-                        # 6. 呼叫對應的 MCP Tool
-                        tool_result_parts = []
-                        for part in function_calls:
-                            fc = part.function_call
-                            tool_name = fc.name
-                            tool_args = dict(fc.args) if fc.args else {}
-
-                            print(f"\n[DEBUG] 呼叫工具：{tool_name}")
-                            print(f"[DEBUG] 參數：{json.dumps(tool_args, ensure_ascii=False)}")
-
-                            mcp_result = await session.call_tool(tool_name, tool_args)
-
-                            # 取出回傳文字
-                            result_text = ""
-                            for block in mcp_result.content:
-                                if hasattr(block, "text"):
-                                    result_text += block.text
-
-                            print(f"[DEBUG] 結果：{result_text}")
-
-                            tool_result_parts.append(
-                                types.Part(
-                                    function_response=types.FunctionResponse(
-                                        name=tool_name,
-                                        response={"result": result_text},
+                                try:
+                                    tool_result = await session.call_tool(
+                                        tool_name, arguments=tool_args
                                     )
-                                )
-                            )
+                                    result_text = "\n".join(
+                                        [
+                                            c.text
+                                            for c in tool_result.content
+                                            if c.type == "text"
+                                        ]
+                                    )
+                                    print(
+                                        f"  [Debug] 👈 工具回傳結果長度: {len(result_text)} 字元"
+                                    )
+                                    print(f"  [Debug] 結果片段: {result_text[:50]}...")
 
-                        # 把工具結果送回 Gemini
-                        history.append(types.Content(
-                            role="user",
-                            parts=tool_result_parts,
-                        ))
-                        # 繼續內部迴圈，讓 Gemini 消化工具結果
+                                    func_responses.append(
+                                        types.Part.from_function_response(
+                                            name=tool_name,
+                                            response={"result": result_text},
+                                        )
+                                    )
+                                except Exception as e:
+                                    print(f"  [Debug] ❌ 工具呼叫發生錯誤: {e}")
+                                    func_responses.append(
+                                        types.Part.from_function_response(
+                                            name=tool_name, response={"error": str(e)}
+                                        )
+                                    )
 
-                    else:
-                        # 6. Gemini 給出文字回答，結束內部迴圈
-                        text_parts = [
-                            p.text for p in content.parts if p.text
-                        ]
-                        final_text = "".join(text_parts).strip()
-                        print(f"\nGemini：{final_text}")
-                        break  # 跳出內部迴圈，等待下一輪使用者輸入
+                            print("  [Debug] 🔄 將結果送回給 Agent...")
+                            response = await chat.send_message(func_responses)
+                        else:
+                            if response.text:
+                                print(f"\n🤖 Agent: {response.text}")
+                            break
 
+                except Exception as e:
+                    print(f"⚠️ 對話發生錯誤: {e}")
 
-# ── 入口 ────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    asyncio.run(run_agent())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n使用者提早結束程式。")
