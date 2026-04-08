@@ -12,7 +12,7 @@
 | Tool 名稱                 | 功能說明     | 負責組員 |
 | ------------------------- | ------------ | -------- |
 | （範例：`get_weather`） | 查詢即時天氣 |          |
-|                           |              |          |
+|           activity_tool                |    查詢今天做什麼          |  邱家悅        |
 |                           |              |          |
 
 ---
@@ -21,7 +21,7 @@
 
 | 姓名 | 負責功能            | 檔案          | 使用的 API |
 | ---- | ------------------- | ------------- | ---------- |
-|      |                     | `tools/`    |            |
+| 邱家悅     |    activity                 | `tools/activity_tool.py`    |      https://bored-api.appbrewery.com/random      |
 |      |                     | `tools/`    |            |
 |      |                     | `tools/`    |            |
 |      | Resource + Prompt   | `server.py` | —         |
@@ -85,12 +85,12 @@ python agent.py
 
 ## 各 Tool 說明
 
-### `tool_name`（負責：姓名）
+### `tool_activity`（負責：邱家悅）
 
-- **功能**：
-- **使用 API**：
+- **功能**：今天做什麼
+- **使用 API**：https://bored-api.appbrewery.com/random
 - **參數**：
-- **回傳範例**：
+- **回傳範例**：Few to no challenges
 
 ```python
 @mcp.tool()
