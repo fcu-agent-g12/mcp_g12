@@ -22,7 +22,7 @@
 | 姓名 | 負責功能            | 檔案          | 使用的 API |
 | ---- | ------------------- | ------------- | ---------- |
 | 邱家悅     |    activity                 | `tools/activity_tool.py`    |      https://bored-api.appbrewery.com/random      |
-|      |                     | `tools/`    |            |
+|  劉嘉鎔    |     unless_fact                | `tools/`    |    https://uselessfacts.jsph.pl/api/v2/facts/random        |
 |      |                     | `tools/`    |            |
 |      | Resource + Prompt   | `server.py` | —         |
 |      | Agent（用 AI 產生） | `agent.py`  | Gemini API |
@@ -106,12 +106,30 @@ def tool_name(param: str) -> str:
 - **參數**：
 - **回傳範例**：
 
-### `tool_name`（負責：姓名）
+### `tool_name`（負責：劉嘉鎔）
 
-- **功能**：
-- **使用 API**：
+- **功能**：每日冷知識
+- **使用 API**：https://uselessfacts.jsph.pl/api/v2/facts/random
 - **參數**：
-- **回傳範例**：
+- **回傳範例**：def get_fun_fact_data() -> str:
+    """
+    呼叫 Useless Facts API，回傳一則隨機冷知識（英文）及來源連結。
+    """
+    resp = requests.get(API_URL, timeout=10)
+    resp.raise_for_status()
+    data = resp.json()
+
+    fact_text = data.get("text", "（無法取得冷知識）")
+    source_url = data.get("source_url", "")
+    permalink = data.get("permalink", "")
+
+    result = f"今日冷知識：{fact_text}"
+    if source_url:
+        result += f"\n來源：{source_url}"
+    if permalink:
+        result += f"\n永久連結：{permalink}"
+
+    return result
 
 ---
 
