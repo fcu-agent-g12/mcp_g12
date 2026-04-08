@@ -1,3 +1,6 @@
+.venv/
+.env
+*.pyc
 .env
 **/__pycache__/**
 # 虛擬環境
