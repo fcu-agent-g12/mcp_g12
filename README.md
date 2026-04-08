@@ -1,7 +1,7 @@
 # MCP Server + AI agent 分組實作
 
 > 課程：AI Agent 開發 — MCP（Model Context Protocol）
-> 主題：（填入你們選的主題）
+> 主題：每日生活顧問 MCP Server
 
 ---
 
@@ -9,23 +9,23 @@
 
 > 說明這個 MCP Server 提供哪些 Tool
 
-| Tool 名稱                 | 功能說明     | 負責組員 |
-| ------------------------- | ------------ | -------- |
-| （範例：`get_weather`） | 查詢即時天氣 |          |
-|           activity_tool                |    查詢今天做什麼          |  邱家悅        |
-|                           |              |          |
+| Tool 名稱 | 功能說明 | 負責組員 |
+| --- | --- | --- |
+| `get_dog_image` | 取得每日隨機狗狗圖片 URL | 龎靚伊 |
+| `activity_tool` | 查詢今天做什麼 | 邱家悅 |
+| | | |
 
 ---
 
 ## 組員與分工
 
-| 姓名 | 負責功能            | 檔案          | 使用的 API |
-| ---- | ------------------- | ------------- | ---------- |
-| 邱家悅     |    activity                 | `tools/activity_tool.py`    |      https://bored-api.appbrewery.com/random      |
-|      |                     | `tools/`    |            |
-|      |                     | `tools/`    |            |
-|      | Resource + Prompt   | `server.py` | —         |
-|      | Agent（用 AI 產生） | `agent.py`  | Gemini API |
+| 姓名 | 負責功能 | 檔案 | 使用的 API |
+| ---- | -------- | ---- | ---------- |
+| 龎靚伊 | get_dog_image | `tools/dog_tool.py` | [dog.ceo API](https://dog.ceo/api/breeds/image/random) |
+| 邱家悅 | activity | `tools/activity_tool.py` | [bored API](https://bored-api.appbrewery.com/random) |
+| | | `tools/` | |
+| | Resource + Prompt | `server.py` | — |
+| | Agent（用 AI 產生） | `agent.py` | Gemini API |
 
 ---
 
@@ -85,18 +85,26 @@ python agent.py
 
 ## 各 Tool 說明
 
+### `get_dog_image`（負責：龎靚伊）
+
+- **功能**：取得每日隨機狗狗圖片 URL，提供療癒視覺內容
+- **使用 API**：`https://dog.ceo/api/breeds/image/random`
+- **參數**：無
+- **回傳範例**：`https://images.dog.ceo/breeds/hound-afghan/n02088094_1003.jpg`
+
 ### `tool_activity`（負責：邱家悅）
 
 - **功能**：今天做什麼
-- **使用 API**：https://bored-api.appbrewery.com/random
-- **參數**：
-- **回傳範例**：Learn Morse code
+- **使用 API**：`https://bored-api.appbrewery.com/random`
+- **參數**：無
+- **回傳範例**：`Learn Morse code`
 
 ```python
 @mcp.tool()
-def tool_name(param: str) -> str:
-    """Tool 的 docstring（這就是 AI 看到的描述）"""
-    ...
+def get_dog_image() -> str:
+    """取得每日隨機狗狗圖片 URL。
+    當使用者想看狗狗、需要療癒圖片、或詢問每日一狗時使用。"""
+    return get_dog_image_data()
 ```
 
 ### `tool_name`（負責：姓名）

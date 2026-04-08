@@ -26,6 +26,14 @@ mcp = FastMCP("第X組-server")
 #     當使用者詢問天氣、溫度、是否該帶傘時使用。"""
 #     return get_weather_data(city)
 
+from tools.dog_tool import get_dog_image_data
+
+@mcp.tool()
+def get_dog_image() -> str:
+    """取得每日隨機狗狗圖片 URL。
+    當使用者想看狗狗、需要療癒圖片、或詢問每日一狗時使用。"""
+    return get_dog_image_data()
+
 
 @mcp.tool()
 def hello(name: str) -> str:
