@@ -1,2 +1,16 @@
 .env
 **/__pycache__/**
+# 虛擬環境
+.venv/
+
+# 環境變數
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# macOS
+.DS_Store
