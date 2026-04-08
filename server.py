@@ -25,13 +25,13 @@ def get_weather(city: str) -> str:
     當使用者詢問天氣、溫度、濕度、風速、是否該帶傘、目的地天氣時使用。"""
     return get_weather_data(city)
 
-from tools.useless_fact_tool import get_useless_fact_data
+from tools.useless_fact_tool import get_fun_fact_data
 
 @mcp.tool()
-def get_useless_fact() -> str:
+def get_fun_fact() -> str:
     """取得一則隨機英文冷知識（今日冷知識）。
     當使用者詢問冷知識、趣聞、隨機事實、今天學到什麼時使用。"""
-    return get_useless_fact_data()
+    return get_fun_fact_data()
 
 
 @mcp.tool()
