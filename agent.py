@@ -1,38 +1,117 @@
-"""
-W8 分組實作：MCP Client + Gemini Agent
-
-這個檔案用 AI 產生。請把以下設計指令貼給你的 AI 工具（Copilot / Antigravity），
-讓它幫你產生完整的程式碼：
-
-────────────────────────────────────────────
-設計指令（複製貼給 AI）：
-
-幫我寫一個 Python Agent，需求如下：
-
-1. 用 MCP SSE Client 連接到 http://localhost:8000/sse
-   （server.py 已在另一個終端機獨立執行）
-2. 連接後，自動取得 Server 提供的所有工具清單（list_tools）
-3. 把工具清單轉換成 Gemini API 的 function declaration 格式
-4. 使用 Gemini 2.0 Flash（免費版），進行多輪對話
-5. 當 Gemini 回傳 function_call 時：
-   - 透過 MCP call_tool 呼叫對應的 Tool
-   - 把結果送回 Gemini 繼續對話
-6. 當 Gemini 回傳文字時，直接顯示給使用者
-7. 需要的套件：google-genai、mcp、python-dotenv
-8. API Key 從 .env 的 GEMINI_API_KEY 讀取
-9. 用 asyncio 執行（因為 MCP Client 是非同步的）
-10. 加上 debug 輸出，顯示 Agent 呼叫了哪個工具和結果
-
-MCP SSE Client 的連接方式：
+import os
+import asyncio
+from dotenv import load_dotenv
 from mcp.client.sse import sse_client
-async with sse_client("http://localhost:8000/sse") as (read, write):
-    ...
-────────────────────────────────────────────
+from mcp.client.session import ClientSession
+from google import genai
+from google.genai import types
 
-啟動方式：
-  終端機 1：python server.py   （先啟動 Server）
-  終端機 2：python agent.py    （再啟動 Agent）
-"""
+load_dotenv()
 
-# TODO：把上面的設計指令貼給 AI，用產生的程式碼取代這段
-print("請用 AI 產生這個檔案的程式碼。設計指令在檔案上方的註解中。")
+
+async def main():
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        print("❌ 請在 .env 中設定 GEMINI_API_KEY")
+        return
+
+    client = genai.Client(api_key=api_key)
+
+    server_url = "http://localhost:8000/sse"
+    print(f"🔗 正在連接到 MCP Server: {server_url}")
+
+    async with sse_client(server_url) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            print("✅ 成功連接到 MCP Server！")
+
+            tools_response = await session.list_tools()
+            print(f"🛠️  自動取得 {len(tools_response.tools)} 個工具。")
+
+            declarations = []
+            for t in tools_response.tools:
+                decl = types.FunctionDeclaration(
+                    name=t.name,
+                    description=t.description or "",
+                    parameters=t.inputSchema,
+                )
+                declarations.append(decl)
+                print(f"  - {t.name}: {t.description}")
+
+            gemini_tools = []
+            if declarations:
+                gemini_tools = [types.Tool(function_declarations=declarations)]
+
+            chat = client.aio.chats.create(
+                model="gemini-2.0-flash",
+                config=types.GenerateContentConfig(tools=gemini_tools, temperature=0.7),
+            )
+
+            print("\n🤖 Gemini Agent 建立完成，聊天開始 (輸入 'quit' 或 'exit' 結束)")
+
+            while True:
+                user_msg = input("\n你: ")
+                if user_msg.lower() in ("quit", "exit"):
+                    print("👋 掰掰！")
+                    break
+                if not user_msg.strip():
+                    continue
+
+                try:
+                    response = await chat.send_message(user_msg)
+
+                    while True:
+                        if response.function_calls:
+                            func_responses = []
+                            for fc in response.function_calls:
+                                tool_name = fc.name
+                                tool_args = fc.args
+                                print(f"\n  [Debug] 👉 Agent 決定呼叫工具: {tool_name}")
+                                print(f"  [Debug] 參數: {tool_args}")
+
+                                try:
+                                    tool_result = await session.call_tool(
+                                        tool_name, arguments=tool_args
+                                    )
+                                    result_text = "\n".join(
+                                        [
+                                            c.text
+                                            for c in tool_result.content
+                                            if c.type == "text"
+                                        ]
+                                    )
+                                    print(
+                                        f"  [Debug] 👈 工具回傳結果長度: {len(result_text)} 字元"
+                                    )
+                                    print(f"  [Debug] 結果片段: {result_text[:50]}...")
+
+                                    func_responses.append(
+                                        types.Part.from_function_response(
+                                            name=tool_name,
+                                            response={"result": result_text},
+                                        )
+                                    )
+                                except Exception as e:
+                                    print(f"  [Debug] ❌ 工具呼叫發生錯誤: {e}")
+                                    func_responses.append(
+                                        types.Part.from_function_response(
+                                            name=tool_name, response={"error": str(e)}
+                                        )
+                                    )
+
+                            print("  [Debug] 🔄 將結果送回給 Agent...")
+                            response = await chat.send_message(func_responses)
+                        else:
+                            if response.text:
+                                print(f"\n🤖 Agent: {response.text}")
+                            break
+
+                except Exception as e:
+                    print(f"⚠️ 對話發生錯誤: {e}")
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n使用者提早結束程式。")

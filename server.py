@@ -9,8 +9,9 @@ W8 分組實作：MCP Server
 """
 
 from mcp.server.fastmcp import FastMCP
+from tools.get_weather import get_weather_data
 
-mcp = FastMCP("第X組-server")
+mcp = FastMCP("第12組-server")
 
 
 # ════════════════════════════════
@@ -41,6 +42,12 @@ def hello(name: str) -> str:
     return f"你好，{name}！MCP Server 運作正常 🎉"
 
 
+@mcp.tool()
+def get_weather(city: str) -> str:
+    """取得指定城市的即時天氣資訊。"""
+    return get_weather_data(city)
+
+
 # ════════════════════════════════
 #  Resource：提供靜態參考資料
 #  URI 格式：info://名稱 或 docs://名稱
@@ -64,18 +71,18 @@ def hello(name: str) -> str:
 #  使用者透過 /use <名稱> [參數] 呼叫
 # ════════════════════════════════
 
+
 # 範例（替換成符合你們主題的內容）：
-#
-# @mcp.prompt()
-# def my_plan(topic: str) -> str:
-#     """產生（主題）計畫的提示詞"""
-#     return (
-#         f"請幫我規劃關於 {topic} 的計畫：\n"
-#         f"1. 先使用相關工具取得資訊\n"
-#         f"2. 根據資訊提供 3 個具體建議\n"
-#         f"3. 附上一則笑話或建議讓我開心\n"
-#         f"請用繁體中文回答。"
-#     )
+@mcp.prompt()
+def my_plan(topic: str) -> str:
+    """每日生活顧問 MCP Server"""
+    return (
+        f"請幫我規劃關於 {topic} 的計畫：\n"
+        f"1. 先使用相關工具取得資訊\n"
+        f"2. 根據資訊提供 3 個具體建議\n"
+        f"3. 附上一則笑話或建議讓我開心\n"
+        f"請用繁體中文回答。"
+    )
 
 
 if __name__ == "__main__":
