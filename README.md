@@ -12,20 +12,20 @@
 | Tool 名稱 | 功能說明 | 負責組員 |
 | --- | --- | --- |
 | `get_dog_image` | 取得每日隨機狗狗圖片 URL | 龎靚伊 |
-| | | |
+| `activity_tool` | 查詢今天做什麼 | 邱家悅 |
 | | | |
 
 ---
 
 ## 組員與分工
 
-| 姓名 | 負責功能            | 檔案                      | 使用的 API |
-| ---- | ------------------- | ------------------------- | ---------- |
-| 龎靚伊 | get_dog_image     | `tools/dog_tool.py`     | [dog.ceo API](https://dog.ceo/api/breeds/image/random) |
-|      |                     | `tools/`                |            |
-|      |                     | `tools/`                |            |
-|      | Resource + Prompt   | `server.py`             | —          |
-|      | Agent（用 AI 產生） | `agent.py`              | Gemini API |
+| 姓名 | 負責功能 | 檔案 | 使用的 API |
+| ---- | -------- | ---- | ---------- |
+| 龎靚伊 | get_dog_image | `tools/dog_tool.py` | [dog.ceo API](https://dog.ceo/api/breeds/image/random) |
+| 邱家悅 | activity | `tools/activity_tool.py` | [bored API](https://bored-api.appbrewery.com/random) |
+| | | `tools/` | |
+| | Resource + Prompt | `server.py` | — |
+| | Agent（用 AI 產生） | `agent.py` | Gemini API |
 
 ---
 
@@ -91,6 +91,13 @@ python agent.py
 - **使用 API**：`https://dog.ceo/api/breeds/image/random`
 - **參數**：無
 - **回傳範例**：`https://images.dog.ceo/breeds/hound-afghan/n02088094_1003.jpg`
+
+### `tool_activity`（負責：邱家悅）
+
+- **功能**：今天做什麼
+- **使用 API**：`https://bored-api.appbrewery.com/random`
+- **參數**：無
+- **回傳範例**：`Learn Morse code`
 
 ```python
 @mcp.tool()
