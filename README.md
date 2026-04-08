@@ -90,7 +90,7 @@ python agent.py
 - **功能**：今天做什麼
 - **使用 API**：https://bored-api.appbrewery.com/random
 - **參數**：
-- **回傳範例**：Few to no challenges
+- **回傳範例**：Learn Morse code
 
 ```python
 @mcp.tool()
